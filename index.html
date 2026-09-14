@@ -33,6 +33,28 @@
 <section class="section" id="photos"><div class="section-title"><span></span><h2>LATEST PHOTOS</h2></div><div class="grid" id="photosGrid"></div></section>
 <section class="section" id="your-news"><div class="section-title"><span></span><h2>PORTAL REPORTS</h2></div><div id="portalReports" class="reports"></div></section>
 </main>
+<div class="modal" id="gawadModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="gawadModalTitle">
+  <div class="modal-backdrop" data-close-gawad></div>
+  <article class="modal-panel">
+    <button class="modal-close" id="closeGawad" aria-label="Close article">×</button>
+    <img class="modal-poster" src="/assets/gawad-saludo-poster.png" alt="Gawad Saludo: Sulo ng Kadakilaan poster">
+    <div class="modal-content">
+      <div class="cat">SPECIAL FEATURE</div>
+      <h2 id="gawadModalTitle">GAWAD SALUDO: SULO NG KADAKILAAN</h2>
+      <p class="modal-deck">Pagpupugay sa mga natatanging indibidwal na nagbibigay-liwanag sa kanilang komunidad sa pamamagitan ng serbisyo, malasakit at tunay na halimbawa ng kabutihan.</p>
+      <p>Ang <strong>Gawad Saludo: Sulo ng Kadakilaan</strong> ay isang espesyal na pagkilala sa mga taong nagpakita ng natatanging dedikasyon, pamumuno, paglilingkod at malasakit sa kapwa. Sa bawat kuwento ng nominado, makikita ang mga simpleng gawaing may malaking epekto sa pamilya, komunidad at lipunan.</p>
+      <p>Layunin ng pagkilala na bigyang-pansin ang mga taong patuloy na nagsisilbing inspirasyon—mga indibidwal na hindi lamang mahusay sa kanilang larangan kundi handang maglaan ng panahon, talento at puso para sa kapakanan ng iba.</p>
+      <p>Ngayong 2026, inaabangan ang opisyal na paglalabas ng mga napiling tatanggap ng parangal. <strong>Hindi pa inilalabas sa portal ang pangalan ng mga opisyal na awardees</strong> hangga't wala pang pormal na anunsyo mula sa organizers.</p>
+      <div class="awardees-box">
+        <div class="awardees-label">🏆 OFFICIAL AWARDEES</div>
+        <h3>To Be Officially Revealed</h3>
+        <p>Abangan dito ang kumpletong listahan ng mga opisyal na pararangalan kapag pormal na itong inanunsyo.</p>
+      </div>
+      <div class="article-note"><strong>SULO NG KADAKILAAN</strong><br>Pagpupugay sa mga taong nagbibigay-liwanag sa kanilang kapwa.</div>
+    </div>
+  </article>
+</div>
+
 <footer><div class="footer-logo">GMA NEWS ONLINE PORTAL</div><p>Linked headlines and media source: GMA News Online. This portal is independently operated and is not the official GMA News Online website.</p></footer>
 <script>
 const state={items:[],portal:[],category:'home'};
@@ -44,8 +66,9 @@ function safeImg(url,title='News',verified=false){
   return `<img loading="lazy" referrerpolicy="origin" src="${esc(url)}" alt="${esc(title)}" data-verified="${verified?'1':'0'}" onerror="this.closest('.media-wrap')?.classList.add('failed');this.style.display='none';this.nextElementSibling?.classList.add('show')"> <div class="image-fallback">PHOTO NOT AVAILABLE</div>`;
 }
 function media(item){return `<div class="media-wrap">${safeImg(item.image,item.title,item.imageVerified)}</div>`;}
-function card(item){return `<article class="card"><a href="${esc(item.link||'#')}" target="_blank" rel="noopener noreferrer">${media(item)}<div class="card-body"><div class="cat">${esc((item.category||'NEWS').toUpperCase())}</div><h3>${esc(item.title)}</h3><div class="meta">${ago(item.pubDate)} <small class="source">${esc(item.source||'GMA News Online')}</small></div></div></a></article>`;}
-function videoCard(item){const target=item.video||item.link||'#';return `<article class="video-card"><a href="${esc(target)}" target="_blank" rel="noopener noreferrer">${media(item)}<span class="play">▶</span><h3>${esc(item.title)}</h3><small>${esc(item.source||'GMA News Online')}</small></a></article>`;}
+function brief(item){return item.summary?`<p class="brief">${esc(item.summary)}</p>`:'';}
+function card(item){return `<article class="card"><a href="${esc(item.link||'#')}" target="_blank" rel="noopener noreferrer">${media(item)}<div class="card-body"><div class="cat">${esc((item.category||'NEWS').toUpperCase())}</div><h3>${esc(item.title)}</h3>${brief(item)}<div class="meta">${ago(item.pubDate)} <small class="source">${esc(item.source||'GMA News Online')}</small></div><div class="see-more">SEE MORE <span>→</span></div></div></a></article>`;}
+function videoCard(item){const target=item.video||item.link||'#';return `<article class="video-card"><a href="${esc(target)}" target="_blank" rel="noopener noreferrer">${media(item)}<span class="play">▶</span><h3>${esc(item.title)}</h3>${brief(item)}<div class="see-more">WATCH / SEE MORE <span>→</span></div><small>${esc(item.source||'GMA News Online')}</small></a></article>`;}
 function render(){
  const items=[...state.items].sort((a,b)=>new Date(b.pubDate)-new Date(a.pubDate));
  document.getElementById('justText').textContent=items[0]?.title||'No headlines yet';
@@ -53,8 +76,9 @@ function render(){
  document.getElementById('pageKicker').textContent=labels[state.category]||state.category.toUpperCase();
  document.getElementById('sectionHeading').textContent=state.category==='home'?'MORE TOP STORIES':`${(labels[state.category]||state.category).toUpperCase()} STORIES`;
  const hero=items[0];
- document.getElementById('hero').innerHTML=hero?`<a class="hero-card" href="${esc(hero.link)}" target="_blank" rel="noopener noreferrer">${media(hero)}<div class="hero-overlay"><div class="cat">${esc((hero.category||labels[state.category]||'NEWS').toUpperCase())}</div><h1>${esc(hero.title)}</h1><p>${esc((hero.summary||'').slice(0,180))}</p><div class="meta">${ago(hero.pubDate)} · ${esc(hero.source||'GMA News Online')}</div></div></a>`:'<div class="empty">No stories available.</div>';
- document.getElementById('stories').innerHTML=items.slice(1,13).map(card).join('')||'<div class="empty">No stories available in this section.</div>';
+ const gawadSummary='Isang espesyal na pagkilala sa mga natatanging indibidwal na nagbigay ng serbisyo, inspirasyon at malasakit sa kanilang komunidad. Abangan ang opisyal na paglalabas ng mga napiling awardees para sa Gawad Saludo 2026.';
+ document.getElementById('hero').innerHTML=`<button class="hero-card hero-special" type="button" id="gawadHero">${media({image:'/assets/gawad-saludo-poster.png',title:'Gawad Saludo: Sulo ng Kadakilaan',imageVerified:true})}<div class="hero-overlay"><div class="cat">IMPORTANT NEWS • SPECIAL FEATURE</div><h1>GAWAD SALUDO: SULO NG KADAKILAAN</h1><p>${gawadSummary}</p><div class="meta">Gawad Saludo 2026 · Special Feature</div><div class="see-more hero-see">READ FULL STORY <span>→</span></div></div></button>`;
+ document.getElementById('stories').innerHTML=items.slice(0,12).map(card).join('')||'<div class="empty">No stories available in this section.</div>';
  const vids=(state.category==='videos'?items:items.filter(x=>x.isVideo)).slice(0,6);
  document.getElementById('videosGrid').innerHTML=vids.length?vids.map(videoCard).join(''):'<div class="empty">No verified GMA video items available yet.</div>';
  const photos=(state.category==='home'?state.items.filter(x=>x.imageVerified):items.filter(x=>x.imageVerified)).slice(0,6);
@@ -64,7 +88,7 @@ function render(){
 async function load(category='home'){
  state.category=category;
  try{const r=await fetch('/api/news?category='+encodeURIComponent(category));const d=await r.json();state.items=d.items||[];render();}
- catch(e){document.getElementById('justText').textContent='Feed temporarily unavailable';}
+ catch(e){document.getElementById('justText').textContent='News feed temporarily unavailable — retrying automatically.';}
 }
 function setActive(cat){document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.category===cat));}
 function closeMenu(){document.getElementById('nav').classList.remove('open');document.getElementById('backdrop').classList.remove('show');document.getElementById('menuBtn').setAttribute('aria-expanded','false');}
@@ -75,6 +99,10 @@ document.getElementById('backdrop').onclick=closeMenu;
 document.getElementById('refreshBtn').onclick=()=>load(state.category);
 document.getElementById('searchBtn').onclick=()=>{const q=prompt('Search headlines');if(!q)return;const term=q.toLowerCase();const matches=[...state.items,...state.portal].filter(x=>(x.title||'').toLowerCase().includes(term)||(x.summary||'').toLowerCase().includes(term));document.getElementById('stories').innerHTML=matches.length?matches.map(card).join(''):'<div class="empty">No matching headlines.</div>';document.getElementById('stories').scrollIntoView({behavior:'smooth'});};
 async function loadPortal(){try{const r=await fetch('/api/articles');state.portal=(await r.json()).items||[];render();}catch(e){}}
+function openGawad(){const m=document.getElementById('gawadModal');m.classList.add('show');m.setAttribute('aria-hidden','false');document.body.classList.add('modal-open');document.getElementById('closeGawad').focus();}
+function closeGawad(){const m=document.getElementById('gawadModal');m.classList.remove('show');m.setAttribute('aria-hidden','true');document.body.classList.remove('modal-open');}
+document.addEventListener('click',e=>{if(e.target.id==='gawadHero'||e.target.closest('#gawadHero'))openGawad();if(e.target.id==='closeGawad'||e.target.hasAttribute('data-close-gawad'))closeGawad();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeGawad();});
 load();loadPortal();setInterval(()=>load(state.category),5*60*1000);
 </script>
 </body></html>

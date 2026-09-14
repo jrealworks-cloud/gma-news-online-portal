@@ -7,325 +7,146 @@ const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const GMA_HOST = 'https://www.gmanetwork.com';
-const GMA_RSS_INDEX = `${GMA_HOST}/news/rss/`;
-const GMA_PRIMARY_FEED = 'https://data.gmanews.tv/gno/rss/news/feed.xml';
-
-const parser = new Parser({
-  timeout: 20000,
-  customFields: {
-    item: [
-      ['media:content', 'mediaContent', {keepArray: true}],
-      ['media:thumbnail', 'mediaThumbnail', {keepArray: true}],
-      ['media:group', 'mediaGroup'],
-      ['enclosure', 'enclosure']
-    ]
-  }
-});
-
+const GMA = 'https://www.gmanetwork.com';
 const DATA = path.join(__dirname, 'data');
 const UP = path.join(__dirname, 'uploads');
 const ARTICLES = path.join(DATA, 'articles.json');
-fs.mkdirSync(DATA, {recursive: true});
-fs.mkdirSync(UP, {recursive: true});
-if (!fs.existsSync(ARTICLES)) fs.writeFileSync(ARTICLES, '[]');
+fs.mkdirSync(DATA, {recursive:true}); fs.mkdirSync(UP,{recursive:true});
+if(!fs.existsSync(ARTICLES)) fs.writeFileSync(ARTICLES,'[]');
 
-const upload = multer({
-  dest: UP,
-  limits: {fileSize: 100 * 1024 * 1024}
-});
+const parser = new Parser({timeout:20000, customFields:{item:[['media:content','mediaContent',{keepArray:true}],['media:thumbnail','mediaThumbnail',{keepArray:true}],['enclosure','enclosure']]}});
+const upload = multer({dest:UP,limits:{fileSize:100*1024*1024}});
+app.use(express.json({limit:'2mb'})); app.use(express.urlencoded({extended:true}));
+app.use('/uploads',express.static(UP)); app.use(express.static(__dirname));
 
-app.use(express.json({limit: '2mb'}));
-app.use(express.urlencoded({extended: true}));
-app.use('/uploads', express.static(UP));
-app.use(express.static(__dirname));
-
-const CATEGORY_PAGES = {
-  home: `${GMA_HOST}/news/`,
-  nation: `${GMA_HOST}/news/topstories/nation/`,
-  metro: `${GMA_HOST}/news/topstories/metro/`,
-  world: `${GMA_HOST}/news/topstories/world/`,
-  showbiz: `${GMA_HOST}/news/showbiz/`,
-  sports: `${GMA_HOST}/news/sports/`,
-  business: `${GMA_HOST}/news/money/`,
-  lifestyle: `${GMA_HOST}/news/lifestyle/`,
-  videos: `${GMA_HOST}/news/video/`,
-  photos: `${GMA_HOST}/news/photos/`
+const PAGES={
+ home:'/news/', nation:'/news/topstories/nation/', metro:'/news/topstories/metro/', world:'/news/topstories/world/',
+ showbiz:'/news/showbiz/', sports:'/news/sports/', business:'/news/money/', lifestyle:'/news/lifestyle/',
+ videos:'/news/video/', photos:'/news/photo/'
 };
+const FEEDS=[
+ 'https://data.gmanews.tv/gno/rss/news/feed.xml',
+ 'https://www.gmanetwork.com/news/breaking/rss'
+];
+const cache={items:[],updatedAt:null};
+const metaCache=new Map(); const META_TTL=6*60*60*1000;
+let refreshPromise=null;
 
-let cache = {items: [], updatedAt: null, photos: [], videos: []};
-const metaCache = new Map();
-const META_TTL = 6 * 60 * 60 * 1000;
+const abs=u=>{if(!u)return null;try{return new URL(String(u).trim(),GMA).href}catch{return null}};
+const text=s=>cheerio.load(`<div>${s||''}</div>`).text().replace(/\s+/g,' ').trim();
+function firstUrl(v){
+ if(!v)return null; if(typeof v==='string')return abs(v); if(Array.isArray(v)){for(const x of v){const u=firstUrl(x);if(u)return u}return null}
+ if(v.url)return abs(v.url); if(v.href)return abs(v.href); if(v.$?.url)return abs(v.$.url); if(v['@id'])return abs(v['@id']); return null;
+}
+function cat(link,f='News'){
+ const l=(link||'').toLowerCase();
+ if(l.includes('/topstories/nation/'))return 'Nation'; if(l.includes('/topstories/metro/'))return 'Metro'; if(l.includes('/topstories/world/'))return 'World';
+ if(l.includes('/showbiz/'))return 'Showbiz'; if(l.includes('/sports/'))return 'Sports'; if(l.includes('/money/'))return 'Business'; if(l.includes('/lifestyle/'))return 'Lifestyle';
+ if(l.includes('/video/'))return 'Videos'; if(l.includes('/photo/'))return 'Photos'; return f;
+}
+function feedImage(i){
+ const vals=[i.mediaContent,i.mediaThumbnail,i.enclosure,i.thumbnail,i.media];
+ for(const v of vals){const u=firstUrl(v);if(u)return u}
+ const html=i['content:encoded']||i.content||i.description||''; const $=cheerio.load(`<div>${html}</div>`);
+ for(const img of $('img').toArray()) for(const a of ['data-src','data-original','src']){const u=abs($(img).attr(a));if(u)return u}
+ return null;
+}
+function isVideo(i){return /\/news\/video\//i.test(i.link||'') || String(i.enclosure?.type||'').startsWith('video/')}
 
-function readArticles() {
-  try { return JSON.parse(fs.readFileSync(ARTICLES, 'utf8')); } catch { return []; }
+function jsonLdImage($){
+ let found=null;
+ $('script[type="application/ld+json"]').each((_,el)=>{
+  if(found)return; try{
+   const raw=$(el).contents().text().trim(); if(!raw)return; const data=JSON.parse(raw); const nodes=[];
+   const walk=x=>{if(!x||found)return; if(Array.isArray(x)){x.forEach(walk);return} if(typeof x==='object'){nodes.push(x); if(x['@graph'])walk(x['@graph'])}}; walk(data);
+   for(const n of nodes){const u=firstUrl(n.image);if(u){found=u;break}}
+  }catch{}
+ }); return found;
 }
-function writeArticles(x) { fs.writeFileSync(ARTICLES, JSON.stringify(x, null, 2)); }
-function absolute(u) {
-  if (!u) return null;
-  try { return new URL(String(u).trim(), GMA_HOST).href; } catch { return null; }
-}
-function cleanText(s = '') {
-  return cheerio.load(`<div>${s}</div>`).text().replace(/\s+/g, ' ').trim();
-}
-function firstUrl(value) {
-  if (!value) return null;
-  if (typeof value === 'string') return absolute(value);
-  if (Array.isArray(value)) {
-    for (const v of value) { const u = firstUrl(v); if (u) return u; }
+async function pageMeta(url){
+ const old=metaCache.get(url); if(old&&Date.now()-old.at<META_TTL)return old.data;
+ try{
+  const r=await fetch(url,{redirect:'follow',headers:{'User-Agent':'Mozilla/5.0 (compatible; NewsPortal/4.0)','Accept':'text/html,application/xhtml+xml'}});
+  if(!r.ok) return {};
+  const html=await r.text(); const $=cheerio.load(html);
+  let image=null;
+  for(const sel of ['meta[property="og:image"]','meta[property="og:image:url"]','meta[name="twitter:image"]','meta[itemprop="image"]']){image=abs($(sel).first().attr('content'));if(image)break}
+  image=image||jsonLdImage($);
+  if(!image){
+   const selectors=['article img','main img','.article-body img','.story-image img','.article-image img','img[src*="gmanetwork"]'];
+   for(const sel of selectors){const el=$(sel).first(); image=abs(el.attr('data-src'))||abs(el.attr('data-original'))||abs(el.attr('src')); if(image)break}
   }
-  if (value.url) return absolute(value.url);
-  if (value.href) return absolute(value.href);
-  if (value['$']?.url) return absolute(value['$'].url);
-  return null;
-}
-function categoryFrom(link = '', fallback = 'News') {
-  const l = link.toLowerCase();
-  if (l.includes('/topstories/nation/')) return 'Nation';
-  if (l.includes('/topstories/metro/')) return 'Metro';
-  if (l.includes('/topstories/world/')) return 'World';
-  if (l.includes('/topstories/')) return 'News';
-  if (l.includes('/sports/')) return 'Sports';
-  if (l.includes('/showbiz/')) return 'Showbiz';
-  if (l.includes('/lifestyle/')) return 'Lifestyle';
-  if (l.includes('/money/')) return 'Business';
-  if (l.includes('/video/')) return 'Videos';
-  if (l.includes('/photos/')) return 'Photos';
-  return fallback;
+  const video=abs($('meta[property="og:video:secure_url"]').attr('content'))||abs($('meta[property="og:video:url"]').attr('content'))||abs($('meta[property="og:video"]').attr('content'))||null;
+  const title=text($('meta[property="og:title"]').attr('content')||$('title').text());
+  const description=text($('meta[property="og:description"]').attr('content')||$('meta[name="description"]').attr('content')||'');
+  let bodyText='';
+  for(const sel of ['article .article-body p','article .story-body p','article p','.article-body p','main article p']){const ps=$(sel).toArray().map(el=>text($(el).text())).filter(t=>t.length>=35);if(ps.length){bodyText=ps.slice(0,4).join(' ');break}}
+  const data={image,video,title,description,bodyText,canonical:abs($('link[rel="canonical"]').attr('href'))||url}; metaCache.set(url,{at:Date.now(),data}); return data;
+ }catch{return {}}
 }
 
-function mediaUrl(item) {
-  const candidates = [];
-  const add = (v) => { const u = firstUrl(v); if (u) candidates.push(u); };
-  add(item.enclosure);
-  add(item.mediaContent);
-  add(item.mediaThumbnail);
-  add(item.media);
-  add(item.thumbnail);
-  if (item.mediaGroup) {
-    add(item.mediaGroup['media:content']);
-    add(item.mediaGroup['media:thumbnail']);
-  }
-  const html = item['content:encoded'] || item.content || item.description || '';
-  const $ = cheerio.load(`<div>${html}</div>`);
-  $('img').each((_, img) => {
-    add($(img).attr('data-src'));
-    add($(img).attr('data-original'));
-    add($(img).attr('src'));
-  });
-  return candidates.find(Boolean) || null;
+function normalize(i){const link=abs(i.link); return {id:link||`${i.title}-${i.pubDate}`,title:text(i.title||'Untitled'),link,pubDate:i.isoDate||i.pubDate||new Date().toISOString(),summary:text(i.contentSnippet||i.summary||'').slice(0,260),image:feedImage(i),category:cat(link),source:'GMA News Online',isVideo:isVideo(i),video:isVideo(i)?firstUrl(i.enclosure):null,imageVerified:false}}
+function twoSentences(value=''){const s=text(value).replace(/\s+/g,' ').trim();if(!s)return '';const parts=s.match(/[^.!?]+[.!?](?:['”’\"])?/g)||[s];return parts.slice(0,2).join(' ').trim().slice(0,420)}
+
+async function parseFeed(url){try{const f=await parser.parseURL(url);return f.items.map(normalize)}catch(e){return[]}}
+
+function listingCandidates($, kind){
+ const out=[]; const seen=new Set();
+ $('a[href]').each((_,a)=>{
+  const href=abs($(a).attr('href')); if(!href||!href.startsWith(GMA+'/news/'))return;
+  const l=href.toLowerCase();
+  const ok=kind==='videos'?l.includes('/news/video/'):kind==='photos'?l.includes('/news/photo/'):(/\/story\//i.test(l)||/\/video\//i.test(l));
+  if(!ok||seen.has(href))return;
+  const title=text($(a).find('h1,h2,h3,h4,h5').first().text()||$(a).attr('title')||$(a).text()); if(title.length<18||title.length>300)return;
+  let root=$(a).closest('article,li').first(); if(!root.length) root=$(a).parent().parent();
+  let image=null; const img=root.find('img').first(); image=abs(img.attr('data-src'))||abs(img.attr('data-original'))||abs(img.attr('src'));
+  seen.add(href); out.push({id:href,title,link:href,pubDate:new Date().toISOString(),summary:'',image,category:kind==='videos'?'Videos':kind==='photos'?'Photos':cat(href),source:'GMA News Online',isVideo:kind==='videos'||/\/video\//.test(l),video:null,imageVerified:false});
+ }); return out;
 }
 
-function isVideoItem(item) {
-  const link = (item.link || '').toLowerCase();
-  const type = (item.enclosure?.type || '').toLowerCase();
-  return type.startsWith('video/') || /\/news\/video\//.test(link);
+async function scrapePage(kind){
+ try{
+  const r=await fetch(GMA+PAGES[kind],{headers:{'User-Agent':'Mozilla/5.0 (compatible; NewsPortal/4.0)','Accept':'text/html'}}); if(!r.ok)return[];
+  const $=cheerio.load(await r.text()); return listingCandidates($,kind).slice(0,50);
+ }catch{return[]}
 }
 
-function imageFromJsonLd($) {
-  let result = null;
-  $('script[type="application/ld+json"]').each((_, el) => {
-    if (result) return;
-    try {
-      const raw = $(el).contents().text();
-      const data = JSON.parse(raw);
-      const nodes = Array.isArray(data) ? data : [data];
-      for (const node of nodes) {
-        const image = node?.image;
-        const u = firstUrl(image);
-        if (u) { result = u; return; }
-        if (node?.['@graph']) {
-          for (const g of node['@graph']) {
-            const gu = firstUrl(g?.image);
-            if (gu) { result = gu; return; }
-          }
-        }
-      }
-    } catch {}
-  });
-  return result;
+async function enrich(items,limit=120){
+ const targets=items.filter(x=>x.link).slice(0,limit); let n=0;
+ const workers=Array.from({length:8},async()=>{while(true){const i=n++;if(i>=targets.length)return;const x=targets[i];const m=await pageMeta(x.link);if(m.image){x.image=m.image;x.imageVerified=true} if(m.video)x.video=m.video; if(m.title&&x.title.length<10)x.title=m.title;}});
+ await Promise.all(workers); return items;
 }
 
-async function pageMeta(url) {
-  const now = Date.now();
-  const cached = metaCache.get(url);
-  if (cached && now - cached.at < META_TTL) return cached.data;
-  try {
-    const r = await fetch(url, {
-      headers: {
-        'user-agent': 'Mozilla/5.0 (compatible; NewsPortal/3.0)',
-        'accept': 'text/html,application/xhtml+xml'
-      }
-    });
-    if (!r.ok) return {};
-    const html = await r.text();
-    const $ = cheerio.load(html);
-    const meta = {
-      image: firstUrl(
-        $('meta[property="og:image"]').attr('content') ||
-        $('meta[property="og:image:url"]').attr('content') ||
-        $('meta[name="twitter:image"]').attr('content')
-      ) || imageFromJsonLd($),
-      video: firstUrl(
-        $('meta[property="og:video:secure_url"]').attr('content') ||
-        $('meta[property="og:video:url"]').attr('content') ||
-        $('meta[property="og:video"]').attr('content')
-      ),
-      canonical: firstUrl($('link[rel="canonical"]').attr('href')) || url
-    };
-    if (!meta.image) {
-      const articleImg = $('article img, .article-body img, .story-image img, .article-image img').first();
-      meta.image = firstUrl(articleImg.attr('data-src')) || firstUrl(articleImg.attr('src')) || null;
-    }
-    metaCache.set(url, {at: now, data: meta});
-    return meta;
-  } catch {
-    return {};
-  }
+async function refresh(){
+ if(refreshPromise)return refreshPromise;
+ refreshPromise=(async()=>{
+  try{
+   let all=[]; for(const f of FEEDS)all.push(...await parseFeed(f));
+   // The category pages are the authoritative fallback when RSS is unavailable or incomplete.
+   const keys=['home','nation','metro','world','showbiz','sports','business','lifestyle','videos'];
+   const pages=await Promise.all(keys.map(k=>scrapePage(k)));
+   pages.forEach(p=>all.push(...p));
+   const map=new Map(); for(const x of all){if(x.link&&!map.has(x.link))map.set(x.link,x)}
+   let items=[...map.values()]; items=await enrich(items.sort((a,b)=>new Date(b.pubDate)-new Date(a.pubDate)),160);
+   // Listing-page timestamps are fetch time; preserve RSS dates where available. Sort verified/current content first by date.
+   items.sort((a,b)=>new Date(b.pubDate)-new Date(a.pubDate));
+   if(items.length){cache.items=items.slice(0,220);cache.updatedAt=new Date().toISOString()}
+   console.log(`Refresh complete: ${cache.items.length} items; ${cache.items.filter(x=>x.imageVerified).length} exact images`);
+  }catch(e){console.error('Refresh failed',e.message)} finally{refreshPromise=null}
+ })(); return refreshPromise;
 }
 
-function normalizeItem(item, source = 'GMA News Online') {
-  const link = absolute(item.link);
-  return {
-    id: link || `${item.title}-${item.pubDate}`,
-    title: cleanText(item.title || 'Untitled'),
-    link,
-    pubDate: item.isoDate || item.pubDate || new Date().toISOString(),
-    summary: cleanText(item.contentSnippet || item.summary || item.content || '').slice(0, 300),
-    image: mediaUrl(item),
-    category: categoryFrom(link, 'News'),
-    source,
-    video: isVideoItem(item) ? firstUrl(item.enclosure) : null,
-    isVideo: isVideoItem(item),
-    imageVerified: false
-  };
+function rulesFor(k){return {nation:'/topstories/nation/',metro:'/topstories/metro/',world:'/topstories/world/',showbiz:'/showbiz/',sports:'/sports/',business:'/money/',lifestyle:'/lifestyle/',videos:'/video/',photos:'/photo/'}[k]}
+async function getCategory(k){
+ if(k==='home')return cache.items;
+ const rule=rulesFor(k); let found=cache.items.filter(x=>rule&&x.link?.includes(rule));
+ if(found.length<6){const extra=await scrapePage(k); found=await enrich(extra,50);}
+ return found.slice(0,80);
 }
 
-async function discoverFeeds() {
-  const urls = new Set([
-    GMA_PRIMARY_FEED,
-    `${GMA_HOST}/news/breaking/rss`
-  ]);
-  try {
-    const r = await fetch(GMA_RSS_INDEX, {headers: {'user-agent': 'Mozilla/5.0'}});
-    if (r.ok) {
-      const html = await r.text();
-      const $ = cheerio.load(html);
-      $('a[href]').each((_, a) => {
-        const h = $(a).attr('href');
-        if (h && /rss|feed\.xml/i.test(h)) {
-          const u = absolute(h);
-          if (u) urls.add(u);
-        }
-      });
-    }
-  } catch {}
-  return [...urls];
-}
-
-async function enrichImages(items, limit = 100) {
-  const targets = items.filter(x => x.link).slice(0, limit);
-  let index = 0;
-  const workers = Array.from({length: 6}, async () => {
-    while (true) {
-      const i = index++;
-      if (i >= targets.length) return;
-      const item = targets[i];
-      const meta = await pageMeta(item.link);
-      // Prefer the exact image exposed by the article page over an RSS thumbnail.
-      if (meta.image) {
-        item.image = meta.image;
-        item.imageVerified = true;
-      }
-      if (item.isVideo && meta.video) item.video = meta.video;
-    }
-  });
-  await Promise.all(workers);
-  return items;
-}
-
-async function refresh() {
-  try {
-    const feeds = await discoverFeeds();
-    const all = [];
-    for (const url of feeds) {
-      try {
-        const f = await parser.parseURL(url);
-        for (const item of f.items.slice(0, 60)) all.push(normalizeItem(item));
-      } catch (e) {}
-    }
-    const seen = new Set();
-    const unique = all.filter(x => x.link && !seen.has(x.link) && seen.add(x.link));
-    unique.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
-    cache.items = await enrichImages(unique.slice(0, 180), 120);
-    cache.videos = cache.items.filter(x => x.isVideo);
-    cache.updatedAt = new Date().toISOString();
-    console.log(`Feed refresh: ${cache.items.length} items; ${cache.items.filter(x => x.image).length} with images`);
-  } catch (e) {
-    console.error('Refresh failed:', e.message);
-  }
-}
-
-async function scrapeCategoryPage(category) {
-  const page = CATEGORY_PAGES[category];
-  if (!page) return [];
-  try {
-    const r = await fetch(page, {headers: {'user-agent': 'Mozilla/5.0 (compatible; NewsPortal/3.0)'}});
-    if (!r.ok) return [];
-    const html = await r.text();
-    const $ = cheerio.load(html);
-    const out = [];
-    const seen = new Set();
-    $('a[href*="/news/"]').each((_, a) => {
-      const href = absolute($(a).attr('href'));
-      if (!href || !href.includes(`${GMA_HOST}/news/`) || seen.has(href)) return;
-      const title = cleanText($(a).find('h1,h2,h3,h4').first().text() || $(a).text());
-      if (title.length < 18) return;
-      const root = $(a).closest('article,li,div').first();
-      const image = firstUrl(root.find('img').first().attr('data-src')) || firstUrl(root.find('img').first().attr('src'));
-      seen.add(href);
-      out.push({id: href, title, link: href, pubDate: new Date().toISOString(), summary: '', image, category: category === 'videos' ? 'Videos' : category === 'photos' ? 'Photos' : categoryFrom(href, category), source: 'GMA News Online', video: null, isVideo: category === 'videos', imageVerified: false});
-    });
-    return enrichImages(out.slice(0, 40), 40);
-  } catch { return []; }
-}
-
-async function categoryItems(category) {
-  const key = (category || 'home').toLowerCase();
-  if (key === 'home') return cache.items;
-  const rules = {
-    nation: ['/topstories/nation/'], metro: ['/topstories/metro/'], world: ['/topstories/world/'],
-    showbiz: ['/showbiz/'], sports: ['/sports/'], business: ['/money/'], lifestyle: ['/lifestyle/'],
-    videos: ['/video/'], photos: ['/photos/']
-  };
-  const fromCache = cache.items.filter(x => (rules[key] || []).some(r => (x.link || '').includes(r)) || (x.category || '').toLowerCase() === key);
-  if (fromCache.length >= 6) return fromCache;
-  const scraped = await scrapeCategoryPage(key);
-  return scraped.length ? scraped : fromCache;
-}
-
-app.get('/api/news', async (req, res) => {
-  const category = (req.query.category || 'home').toLowerCase();
-  const items = await categoryItems(category);
-  res.json({items, updatedAt: cache.updatedAt, category});
-});
-app.get('/api/articles', (req, res) => res.json({items: readArticles().sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate))}));
-app.get('/health', (req, res) => res.json({ok: true, updatedAt: cache.updatedAt, items: cache.items.length}));
-
-app.post('/api/articles', upload.fields([{name: 'image', maxCount: 1}, {name: 'video', maxCount: 1}]), (req, res) => {
-  const {title, summary, body, category = 'News', author = 'Portal Desk', link = ''} = req.body;
-  if (!title) return res.status(400).json({error: 'title is required'});
-  const files = req.files || {};
-  const item = {
-    id: Date.now().toString(), title, summary: summary || '', body: body || '', category, author,
-    link: link || '#', pubDate: new Date().toISOString(), source: 'Portal Report',
-    image: files.image?.[0] ? '/uploads/' + path.basename(files.image[0].path) : req.body.image || null,
-    video: files.video?.[0] ? '/uploads/' + path.basename(files.video[0].path) : req.body.video || null,
-    isVideo: !!(files.video?.[0] || req.body.video), imageVerified: true
-  };
-  const items = readArticles(); items.push(item); writeArticles(items); res.json({ok: true, item});
-});
-
-app.listen(PORT, '0.0.0.0', () => console.log(`GMA NEWS ONLINE PORTAL running on :${PORT}`));
-refresh();
-setInterval(refresh, 5 * 60 * 1000);
+app.get('/api/news',async(req,res)=>{const k=String(req.query.category||'home').toLowerCase(); if(!cache.items.length)await refresh(); const items=await getCategory(k);res.json({items,updatedAt:cache.updatedAt,category:k});});
+app.get('/api/articles',(req,res)=>{let a=[];try{a=JSON.parse(fs.readFileSync(ARTICLES,'utf8'))}catch{} res.json({items:a.sort((x,y)=>new Date(y.pubDate)-new Date(x.pubDate))})});
+app.get('/health',(req,res)=>res.json({ok:true,updatedAt:cache.updatedAt,items:cache.items.length,images:cache.items.filter(x=>x.imageVerified).length}));
+app.post('/api/articles',upload.fields([{name:'image',maxCount:1},{name:'video',maxCount:1}]),(req,res)=>{const {title,summary='',body='',category='News',author='Portal Desk',link=''}=req.body;if(!title)return res.status(400).json({error:'title is required'});const f=req.files||{};const item={id:Date.now().toString(),title,summary,body,category,author,link:link||'#',pubDate:new Date().toISOString(),source:'Portal Report',image:f.image?.[0]?'/uploads/'+path.basename(f.image[0].path):req.body.image||null,video:f.video?.[0]?'/uploads/'+path.basename(f.video[0].path):req.body.video||null,isVideo:!!(f.video?.[0]||req.body.video),imageVerified:true};let a=[];try{a=JSON.parse(fs.readFileSync(ARTICLES,'utf8'))}catch{} a.push(item);fs.writeFileSync(ARTICLES,JSON.stringify(a,null,2));res.json({ok:true,item})});
+app.listen(PORT,'0.0.0.0',()=>console.log(`GMA NEWS ONLINE PORTAL listening on ${PORT}`));
+refresh(); setInterval(refresh,5*60*1000);

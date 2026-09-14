@@ -10,3 +10,33 @@
 .video-card .media-wrap{min-height:180px}
 .video-card .media-wrap img{min-height:180px}
 .no-photo{min-height:180px;display:flex;align-items:center;justify-content:center;background:#e9edf0;color:#6c737a;font-size:.72rem;font-weight:800;letter-spacing:.08em}
+
+.brief{font-size:15px;line-height:1.48;color:#4c4c4c;margin:0 0 12px}.see-more{margin-top:12px;padding-top:10px;border-top:1px solid #ececec;color:#d71920;font-size:13px;font-weight:900;letter-spacing:.5px}.see-more span{font-size:16px;margin-left:4px}.hero-see{color:#fff;border-top:1px solid rgba(255,255,255,.35);max-width:180px}.video-card .brief{font-size:14px;line-height:1.4;margin:7px 0}.video-card .see-more{margin-bottom:7px}.card{transition:transform .15s ease,box-shadow .15s ease}.card:hover{transform:translateY(-2px);box-shadow:0 7px 22px rgba(0,0,0,.08)}
+@media(max-width:720px){.brief{font-size:14px}.hero-see{font-size:12px}}
+
+/* Gawad Saludo special Top Story */
+.hero-special{width:100%;border:0;padding:0;text-align:left;cursor:pointer;background:#111;display:block;position:relative;color:inherit;overflow:hidden}
+.hero-special .media-wrap{height:min(70vw,620px);min-height:300px}
+.hero-special .media-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+.hero-special .hero-overlay{position:absolute;inset:auto 0 0;padding:clamp(18px,4vw,42px);background:linear-gradient(transparent,rgba(0,0,0,.9));color:#fff;padding-top:28%}
+.hero-special h1{font-size:clamp(28px,5vw,58px);line-height:1.02;margin:8px 0 12px;max-width:1000px}
+.hero-special p{font-size:clamp(14px,2vw,20px);line-height:1.45;max-width:900px;margin:0 0 10px;color:#f3f3f3}
+.hero-special .cat{font-weight:800;letter-spacing:.08em}
+.hero-special .hero-see{display:inline-flex;margin-top:12px;background:#d71920;padding:9px 14px;border-radius:3px;font-weight:800}
+.modal{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;padding:16px}
+.modal.show{display:flex}
+.modal-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(3px)}
+.modal-panel{position:relative;z-index:1;width:min(920px,100%);max-height:94vh;overflow:auto;background:#fff;border-radius:12px;box-shadow:0 25px 80px rgba(0,0,0,.4)}
+.modal-close{position:absolute;right:12px;top:12px;z-index:3;width:42px;height:42px;border:0;border-radius:50%;background:rgba(0,0,0,.7);color:#fff;font-size:30px;line-height:1;cursor:pointer}
+.modal-poster{width:100%;display:block;max-height:58vh;object-fit:cover;object-position:center}
+.modal-content{padding:24px clamp(20px,5vw,48px) 38px;color:#1d1d1d}
+.modal-content h2{font-size:clamp(25px,4vw,42px);line-height:1.08;margin:7px 0 14px}
+.modal-content p{font-size:16px;line-height:1.65;margin:0 0 15px}
+.modal-deck{font-weight:650;font-size:18px!important;color:#444}
+.awardees-box{margin:24px 0;padding:20px;border-left:5px solid #d71920;background:#f6f6f6}
+.awardees-label{font-size:13px;font-weight:900;letter-spacing:.08em;color:#b20f16}
+.awardees-box h3{font-size:25px;margin:6px 0}
+.awardees-box p{margin:0;color:#555}
+.article-note{margin-top:22px;padding-top:18px;border-top:1px solid #ddd;text-align:center;color:#666;line-height:1.5}
+.modal-open{overflow:hidden}
+@media(max-width:640px){.hero-special .media-wrap{height:92vw;min-height:0}.hero-special .hero-overlay{padding:24% 16px 16px}.hero-special h1{font-size:28px}.hero-special p{font-size:14px}.modal{padding:0}.modal-panel{height:100%;max-height:100%;border-radius:0}.modal-poster{max-height:48vh;object-fit:cover}}

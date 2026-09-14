@@ -1,17 +1,10 @@
 {
-  "name": "gma-news-online-portal",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "cheerio": "^1.1.2",
-    "express": "^5.1.0",
-    "multer": "^2.0.2",
-    "rss-parser": "^3.13.0"
-  },
-  "engines": {
-    "node": ">=20"
-  }
+  "name":"gma-news-online-portal",
+  "version":"4.0.0",
+  "private":true,
+  "description":"Independent news portal linking to GMA News Online stories and publicly exposed media metadata.",
+  "main":"server.js",
+  "scripts":{"start":"node server.js"},
+  "engines":{"node":">=20"},
+  "dependencies":{"cheerio":"^1.1.2","express":"^5.1.0","multer":"^2.0.2","rss-parser":"^3.13.0"}
 }
