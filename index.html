@@ -1,105 +1,39 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>GMA NEWS ONLINE PORTAL</title>
-  <meta name="description" content="Fast Philippine news headlines, briefs, videos and portal reports.">
-  <link rel="stylesheet" href="/styles.css">
-</head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GMA NEWS ONLINE PORTAL</title><meta name="description" content="Fast Philippine news headlines, briefs, videos and portal reports sourced from GMA News Online feeds and links."><link rel="stylesheet" href="/styles.css"></head>
 <body>
-  <header class="topbar">
-    <div class="brand-mark"><span class="brand-g">GMA</span><span class="brand-news">NEWS</span><span class="brand-online">ONLINE</span><small>PORTAL</small></div>
-    <button class="icon-btn" id="menuBtn" aria-label="Open menu">☰</button>
-    <button class="icon-btn search-btn" id="searchBtn" aria-label="Search">⌕</button>
-  </header>
-
-  <nav class="nav" id="nav">
-    <a class="active" href="#home">HOME</a><a href="#nation">NATION</a><a href="#metro">METRO</a>
-    <a href="#world">WORLD</a><a href="#showbiz">SHOWBIZ</a><a href="#sports">SPORTS</a>
-    <a href="#business">BUSINESS</a><a href="#lifestyle">LIFESTYLE</a><a href="#videos">VIDEOS</a>
-  </nav>
-
-  <main>
-    <section class="just-in">
-      <div class="just-label">⚡ JUST IN</div>
-      <div id="justText">Loading latest headlines…</div>
-      <span id="lastUpdated"></span>
-    </section>
-
-    <div class="banner">FAST. BRIEF. UPDATED. <strong>PHILIPPINE NEWS</strong><span>•</span> YOUR DAILY PORTAL</div>
-
-    <section class="hero" id="home">
-      <div class="section-kicker">TOP STORY</div>
-      <div id="hero"></div>
-    </section>
-
-    <section class="section" id="latest">
-      <div class="section-title"><span></span><h2>MORE TOP STORIES</h2><button id="refreshBtn">Refresh ↻</button></div>
-      <div class="grid" id="stories"></div>
-    </section>
-
-    <section class="section" id="videos">
-      <div class="section-title"><span></span><h2>FEATURED VIDEOS</h2></div>
-      <div class="grid" id="videosGrid"></div>
-    </section>
-
-    <section class="section" id="your-news">
-      <div class="section-title"><span></span><h2>PORTAL REPORTS</h2></div>
-      <div id="portalReports" class="reports"></div>
-    </section>
-
-    <section class="submit-box">
-      <h2>Send a story to the portal</h2>
-      <p>Use the publishing endpoint in the README to add your own article, photo, or video.</p>
-    </section>
-  </main>
-
-  <footer>
-    <div class="footer-logo">GMA NEWS ONLINE PORTAL</div>
-    <p>© 2026 GMA NEWS ONLINE PORTAL • Built for fast mobile-first news reading.</p>
-  </footer>
+<header class="topbar"><button class="icon-btn menu-btn" id="menuBtn" aria-label="Open menu" aria-expanded="false">☰</button><div class="brand-mark"><span class="brand-g">GMA</span><span class="brand-news">NEWS</span><span class="brand-online">ONLINE</span><small>PORTAL</small></div><button class="icon-btn search-btn" id="searchBtn" aria-label="Search">⌕</button></header>
+<nav class="nav" id="nav" aria-label="Main navigation"><a data-category="home" class="active" href="#home">HOME</a><a data-category="nation" href="#nation">NATION</a><a data-category="metro" href="#metro">METRO</a><a data-category="world" href="#world">WORLD</a><a data-category="showbiz" href="#showbiz">SHOWBIZ</a><a data-category="sports" href="#sports">SPORTS</a><a data-category="business" href="#business">BUSINESS</a><a data-category="lifestyle" href="#lifestyle">LIFESTYLE</a><a data-category="videos" href="#videos">VIDEOS</a></nav>
+<div class="mobile-backdrop" id="backdrop"></div>
+<main><section class="just-in"><div class="just-label">⚡ JUST IN</div><div id="justText">Loading latest headlines…</div><span id="lastUpdated"></span></section><div class="banner">FAST. BRIEF. UPDATED. <strong>PHILIPPINE NEWS</strong><span>•</span> YOUR DAILY PORTAL</div>
+<section class="hero" id="home"><div class="section-kicker" id="pageKicker">TOP STORY</div><div id="hero"></div></section>
+<section class="section" id="latest"><div class="section-title"><span></span><h2 id="sectionHeading">MORE TOP STORIES</h2><button id="refreshBtn">Refresh ↻</button></div><div class="grid" id="stories"></div></section>
+<section class="section" id="videos"><div class="section-title"><span></span><h2>FEATURED VIDEOS</h2></div><div class="grid" id="videosGrid"></div></section>
+<section class="section" id="photos"><div class="section-title"><span></span><h2>LATEST PHOTOS</h2></div><div class="grid" id="photosGrid"></div></section>
+<section class="section" id="your-news"><div class="section-title"><span></span><h2>PORTAL REPORTS</h2></div><div id="portalReports" class="reports"></div></section>
+<section class="submit-box"><h2>Send a story to the portal</h2><p>Use the publishing endpoint in the README to add your own article, photo, or video.</p></section></main>
+<footer><div class="footer-logo">GMA NEWS ONLINE PORTAL</div><p>© 2026 GMA NEWS ONLINE PORTAL • GMA News Online is the source for linked/syndicated headlines.</p></footer>
 <script>
-const state = { items: [], portal: [] };
-
-function esc(s=''){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function ago(date){
-  const m=Math.max(1,Math.round((Date.now()-new Date(date).getTime())/60000));
-  if(m<60)return `${m}m ago`; const h=Math.round(m/60); if(h<24)return `${h}h ago`; return `${Math.round(h/24)}d ago`;
-}
-function img(item){
-  return item.image ? `<img loading="lazy" src="${esc(item.image)}" alt="">` : `<div class="img-fallback">NEWS</div>`;
-}
-function card(item){
-  const source = item.source ? `<small class="source">${esc(item.source)}</small>` : '';
-  return `<article class="card" data-cat="${esc(item.category||'')}">
-    <a href="${esc(item.link||'#')}" target="_blank" rel="noopener">${img(item)}
-      <div class="card-body"><div class="cat">${esc((item.category||'NEWS').toUpperCase())}</div>
-      <h3>${esc(item.title)}</h3><div class="meta">${ago(item.pubDate)} ${source}</div></div></a>
-  </article>`;
-}
-function render(){
-  const items=[...state.items].sort((a,b)=>new Date(b.pubDate)-new Date(a.pubDate));
-  document.getElementById('justText').textContent=items[0]?.title||'No headlines yet';
-  document.getElementById('lastUpdated').textContent=items[0]?.pubDate?ago(items[0].pubDate):'';
-  const hero=items[0];
-  document.getElementById('hero').innerHTML=hero ? `<a class="hero-card" href="${esc(hero.link)}" target="_blank" rel="noopener">${img(hero)}<div class="hero-overlay"><div class="cat">${esc((hero.category||'NEWS').toUpperCase())}</div><h1>${esc(hero.title)}</h1><p>${esc((hero.summary||'').slice(0,180))}</p><div class="meta">${ago(hero.pubDate)} · ${esc(hero.source||'Source')}</div></div></a>` : '<div class="empty">No stories available.</div>';
-  document.getElementById('stories').innerHTML=items.slice(1,13).map(card).join('');
-  const vids=items.filter(x=>x.video).slice(0,6);
-  document.getElementById('videosGrid').innerHTML=(vids.length?vids:items.slice(0,6)).map(x=>`<article class="video-card"><a href="${esc(x.video||x.link)}" target="_blank" rel="noopener">${img(x)}<span class="play">▶</span><h3>${esc(x.title)}</h3><small>${esc(x.source||'Portal')}</small></a></article>`).join('');
-  document.getElementById('portalReports').innerHTML=state.portal.length?state.portal.map(card).join(''):'<div class="empty">Your submitted articles will appear here.</div>';
-}
-async function load(){
-  try{
-    const r=await fetch('/api/news'); const d=await r.json(); state.items=d.items||[]; render();
-  }catch(e){ document.getElementById('justText').textContent='Feed temporarily unavailable'; }
-  try{ const r=await fetch('/api/articles'); state.portal=(await r.json()).items||[]; render(); }catch(e){}
-}
-document.getElementById('refreshBtn').onclick=load;
-document.getElementById('menuBtn').onclick=()=>document.getElementById('nav').classList.toggle('open');
-document.getElementById('searchBtn').onclick=()=>{const q=prompt('Search headlines'); if(q){document.querySelectorAll('.card').forEach(c=>c.style.display=c.innerText.toLowerCase().includes(q.toLowerCase())?'':'none');}};
-load();
-setInterval(load, 5*60*1000);
-</script>
-</body>
-</html>
+const state={items:[],portal:[],category:'home'};
+const labels={home:'TOP STORY',nation:'NATION',metro:'METRO',world:'WORLD',showbiz:'SHOWBIZ',sports:'SPORTS',business:'BUSINESS',lifestyle:'LIFESTYLE',videos:'VIDEOS'};
+function esc(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function ago(date){const t=new Date(date).getTime();if(!t)return '';const m=Math.max(1,Math.round((Date.now()-t)/60000));if(m<60)return `${m}m ago`;const h=Math.round(m/60);if(h<24)return `${h}h ago`;return `${Math.round(h/24)}d ago`;}
+function safeImg(url,title='News'){return url?`<img loading="lazy" src="${esc(url)}" alt="${esc(title)}" onerror="this.onerror=null;this.src='/fallback-news.svg'">`:`<img src="/fallback-news.svg" alt="News">`;}
+function card(item){return `<article class="card"><a href="${esc(item.link||'#')}" target="_blank" rel="noopener noreferrer">${safeImg(item.image,item.title)}<div class="card-body"><div class="cat">${esc((item.category||'NEWS').toUpperCase())}</div><h3>${esc(item.title)}</h3><div class="meta">${ago(item.pubDate)} <small class="source">${esc(item.source||'GMA News Online')}</small></div></div></a></article>`;}
+function videoCard(item){const target=item.video||item.link||'#';return `<article class="video-card"><a href="${esc(target)}" target="_blank" rel="noopener noreferrer">${safeImg(item.image,item.title)}<span class="play">▶</span><h3>${esc(item.title)}</h3><small>${esc(item.source||'GMA News Online')}</small></a></article>`;}
+function render(){const items=[...state.items].sort((a,b)=>new Date(b.pubDate)-new Date(a.pubDate));document.getElementById('justText').textContent=items[0]?.title||'No headlines yet';document.getElementById('lastUpdated').textContent=items[0]?.pubDate?ago(items[0].pubDate):'';document.getElementById('pageKicker').textContent=labels[state.category]||state.category.toUpperCase();document.getElementById('sectionHeading').textContent=state.category==='home'?'MORE TOP STORIES':`${(labels[state.category]||state.category).toUpperCase()} STORIES`;
+const hero=items[0];document.getElementById('hero').innerHTML=hero?`<a class="hero-card" href="${esc(hero.link)}" target="_blank" rel="noopener noreferrer">${safeImg(hero.image,hero.title)}<div class="hero-overlay"><div class="cat">${esc((hero.category||labels[state.category]||'NEWS').toUpperCase())}</div><h1>${esc(hero.title)}</h1><p>${esc((hero.summary||'').slice(0,180))}</p><div class="meta">${ago(hero.pubDate)} · ${esc(hero.source||'GMA News Online')}</div></div></a>`:'<div class="empty">No stories available.</div>';
+document.getElementById('stories').innerHTML=items.slice(1,13).map(card).join('')||'<div class="empty">No stories available in this section.</div>';
+const vids=items.filter(x=>x.isVideo||x.video).slice(0,6);document.getElementById('videosGrid').innerHTML=vids.length?vids.map(videoCard).join(''):'<div class="empty">No verified GMA video items available yet.</div>';
+const photos=items.filter(x=>x.image).slice(0,6);document.getElementById('photosGrid').innerHTML=photos.length?photos.map(card).join(''):'<div class="empty">No photo items available yet.</div>';
+document.getElementById('portalReports').innerHTML=state.portal.length?state.portal.map(card).join(''):'<div class="empty">Your submitted articles will appear here.</div>';}
+async function load(category='home'){state.category=category;try{const r=await fetch('/api/news?category='+encodeURIComponent(category));const d=await r.json();state.items=d.items||[];render();}catch(e){document.getElementById('justText').textContent='Feed temporarily unavailable';}}
+function setActive(cat){document.querySelectorAll('.nav a').forEach(a=>a.classList.toggle('active',a.dataset.category===cat));}
+function closeMenu(){document.getElementById('nav').classList.remove('open');document.getElementById('backdrop').classList.remove('show');document.getElementById('menuBtn').setAttribute('aria-expanded','false');}
+function navigate(cat){setActive(cat);closeMenu();load(cat);const target=cat==='home'?'home':'latest';document.getElementById(target)?.scrollIntoView({behavior:'smooth',block:'start'});}
+document.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();navigate(a.dataset.category);}));
+document.getElementById('menuBtn').onclick=()=>{const open=document.getElementById('nav').classList.toggle('open');document.getElementById('backdrop').classList.toggle('show',open);document.getElementById('menuBtn').setAttribute('aria-expanded',String(open));};document.getElementById('backdrop').onclick=closeMenu;
+document.getElementById('refreshBtn').onclick=()=>load(state.category);
+document.getElementById('searchBtn').onclick=()=>{const q=prompt('Search headlines');if(!q)return;const term=q.toLowerCase();const matches=[...state.items,...state.portal].filter(x=>(x.title||'').toLowerCase().includes(term)||(x.summary||'').toLowerCase().includes(term));document.getElementById('stories').innerHTML=matches.length?matches.map(card).join(''):'<div class="empty">No matching headlines.</div>';document.getElementById('stories').scrollIntoView({behavior:'smooth'});};
+async function loadPortal(){try{const r=await fetch('/api/articles');state.portal=(await r.json()).items||[];render();}catch(e){}}
+load();loadPortal();setInterval(()=>load(state.category),5*60*1000);
+</script></body></html>

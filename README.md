@@ -1,56 +1,24 @@
-# GMA NEWS ONLINE PORTAL — build package
+# GMA NEWS ONLINE PORTAL — Updated Build
 
-This package implements the mobile-first news-portal layout shown in the design reference, with:
-- responsive homepage and navigation
-- Just In ticker
-- hero story
-- top-story cards
-- featured videos area
-- Portal Reports for your own articles
-- server-side RSS discovery/polling
-- image/video upload endpoint for your own submissions
+Responsive mobile-first news portal using original portal branding and linking to GMA News Online as the source for syndicated headlines.
 
-## Run locally
+## Updated media/navigation behavior
+- Burger menu opens a mobile navigation drawer.
+- HOME, NATION, METRO, WORLD, SHOWBIZ, SPORTS, BUSINESS, LIFESTYLE and VIDEOS are clickable.
+- Category clicks load matching GMA News Online source items through `/api/news?category=...`.
+- Image handling supports RSS enclosure/media thumbnail/media content plus Open Graph fallback from the original GMA article page.
+- Video cards only appear for items detected as video; ordinary articles are no longer presented as videos.
+- Uploaded portal videos can be served from `/uploads` and used by the portal's publishing endpoint.
+- Broken remote images use a local fallback graphic.
 
-1. Install Node.js 20+.
-2. Run:
-   npm install
-   npm start
-3. Open http://localhost:3000
+## Run
+npm install
+npm start
 
-The server polls the public GMA News Online RSS index every 5 minutes and uses publicly exposed RSS feed data. GMA publishes an RSS feed index at:
-https://www.gmanetwork.com/news/rss/
+## Deploy
+Use Render as a Node Web Service:
+Build: `npm install`
+Start: `npm start`
 
-The implementation intentionally links sourced stories back to their original publisher rather than republishing full copyrighted articles. Whether particular images/videos may be reused or embedded depends on the rights/terms attached to that material.
-
-## Add your own article
-
-POST multipart/form-data to `/api/articles`:
-
-- title (required)
-- summary
-- body
-- category
-- author
-- link
-- image (file) OR image (URL you have permission to use)
-- video (file) OR video (URL you have permission to use)
-
-Example curl:
-
-curl -X POST http://localhost:3000/api/articles \
-  -F "title=My Daily Report" \
-  -F "summary=Short news brief" \
-  -F "category=Nation" \
-  -F "author=Portal Desk" \
-  -F "image=@photo.jpg"
-
-For production, protect the POST endpoint with authentication before exposing it publicly.
-
-## Deployment
-
-Deploy this Node/Express project to a host that supports persistent Node processes. A static-only host cannot perform the server-side RSS polling or accept uploads.
-
-## Branding
-
-The package uses an original portal wordmark and visual system inspired by fast Philippine mobile-news layouts. It does not include GMA Network's proprietary logo artwork.
+## Source/rights note
+This portal should link to the original GMA News Online pages and use only media/feed fields permitted for reuse. GMA News Online's own policies govern use of its articles, photos, audiovisual material and branding.
